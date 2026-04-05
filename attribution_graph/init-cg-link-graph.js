@@ -32,22 +32,20 @@ window.initCgLinkGraph = function({visState, renderAll, data, cgSel}){
   var xRange = [0].concat(ctxCounts.map(d => d.cumsum * c.width / cumsum))
   c.x = d3.scaleLinear().domain(xDomain.map(d => d + 1)).range(xRange)
   
-  var yNumTicks= visState.isHideLayer ? data.byStream.length : 19
+  // Compute y-axis ticks from actual data: Emb(0), L0..Ln, Logits(n+2)
+  var maxStreamIdx = d3.max(nodes, d => d.streamIdx)
+  var yNumTicks = visState.isHideLayer ? data.byStream.length : maxStreamIdx + 1
   c.y = d3.scaleBand(d3.range(yNumTicks), [c.height, 0])
 
   c.yAxis = d3.axisLeft(c.y)
     .tickValues(d3.range(yNumTicks))
     .tickFormat(i => {
-      if (i % 2) return
-      
-      return i == 18 ? 'Lgt' : i == 0 ? 'Emb' : 'L' + i
-      var label = data.byStream[i][0].layerLocationLabel
-      var layer = +label.replace('L', '')
-      return isFinite(layer) && layer % 2 ? '' : label
+      if (yNumTicks > 10 && i % 2) return
+      return i == maxStreamIdx ? 'Lgt' : i == 0 ? 'Emb' : 'L' + (i - 1)
     })
   
   c.svgBot.append('rect').at({width: c.width, height: c.height, fill: '#F5F4EE'})
-  c.svgBot.append('g').appendMany('rect', [0, yNumTicks - 1])
+  c.svgBot.append('g').appendMany('rect', [0, maxStreamIdx])
     .at({width: c.width, height: c.y.bandwidth(), y: c.y, fill: '#F0EEE7'})
   
   c.svgBot.append('g').appendMany('path', d3.range(-1, yNumTicks - 1))
@@ -171,13 +169,16 @@ window.initCgLinkGraph = function({visState, renderAll, data, cgSel}){
   function drawLinks(links, ctx, strokeWidthOffset=0, colorOverride){
     ctx.clearRect(-c.margin.left, -c.margin.top, c.totalWidth, c.totalHeight)
     d3.sort(links, d => d.strokeWidth).forEach(d => {
+      if (!visState.isShowQK && d.isQK) return
       ctx.beginPath()
+      ctx.setLineDash(d.isQK ? [4, 3] : [])
       ctx.moveTo(d.sourceNode.pos[0], d.sourceNode.pos[1])
       ctx.lineTo(d.targetNode.pos[0], d.targetNode.pos[1])
       ctx.strokeStyle = colorOverride || d.color
       ctx.lineWidth = d.strokeWidth + strokeWidthOffset
       ctx.stroke()
     })
+    ctx.setLineDash([])
   }
 
   function filterLinks(featureIds){
@@ -201,6 +202,10 @@ window.initCgLinkGraph = function({visState, renderAll, data, cgSel}){
         }
       })
     })
+
+    if (!visState.isShowQK) {
+      filteredLinks = filteredLinks.filter(d => !d.isQK)
+    }
 
     return filteredLinks
   }
@@ -250,6 +255,11 @@ window.initCgLinkGraph = function({visState, renderAll, data, cgSel}){
   }
   renderAll.hoveredId.fns['linkGraph'] = () => {
     hoverSel.st({display: e => e.featureId == visState.hoveredId ? '' : 'none'})
+  }
+  renderAll.isShowQK.fns['linkGraph'] = () => {
+    drawLinks(links.filter(d => visState.isShowQK || !d.isQK), allCtx.allLinks, 0, 'rgba(0,0,0,.05)')
+    renderPinnedIds()
+    renderClicked()
   }
 
   // Add x axis text/lines

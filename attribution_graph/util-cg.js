@@ -235,15 +235,21 @@ window.utilCg = (function(){
       link.sourceNode.targetLinks.push(link)
       link.targetNode.sourceLinks.push(link)
       link.absWeight = Math.abs(link.weight)
+      link.edgeType = link.edge_type || 'v'
+      link.isQK = link.edgeType === 'qk'
     })
-    links = d3.sort(links, d => d.absWeight) 
-    
+    links = d3.sort(links, d => d.absWeight)
+
 
     nodes.forEach(d => {
-      d.inputAbsSum = d3.sum(d.sourceLinks, e => Math.abs(e.weight))
-      d.sourceLinks.forEach(e => e.pctInput = e.weight/d.inputAbsSum)
+      var vLinks = d.sourceLinks.filter(e => !e.isQK)
+      var qkLinks = d.sourceLinks.filter(e => e.isQK)
+      d.inputAbsSum = d3.sum(vLinks, e => Math.abs(e.weight))
+      vLinks.forEach(e => e.pctInput = e.weight / (d.inputAbsSum || 1))
+      var qkAbsSum = d3.sum(qkLinks, e => Math.abs(e.weight))
+      qkLinks.forEach(e => e.pctInput = e.weight / (qkAbsSum || 1))
       d.inputError = d3.sum(d.sourceLinks.filter(e => e.sourceNode.isError), e => Math.abs(e.weight))
-      d.pctInputError = d.inputError/d.inputAbsSum
+      d.pctInputError = d.inputError / (d.inputAbsSum || 1)
     })
 
     // convert layer/probe_location_idx to a streamIdx used to position nodes
@@ -255,7 +261,11 @@ window.utilCg = (function(){
         d.streamIdx = streamIdx
         d.layerLocationLabel = layerLocationLabel(d.layer, d.probe_location_idx)
         
-        if (!visState.isHideLayer) d.streamIdx = isFinite(d.layer) ? +d.layer : 0
+        // Emb=0, L0=1, L1=2, ..., Logits=maxLayer+2
+        if (!visState.isHideLayer) {
+          if (d.layer == 'E') d.streamIdx = 0
+          else if (isFinite(d.layer)) d.streamIdx = +d.layer + 1
+        }
       })
     })
 

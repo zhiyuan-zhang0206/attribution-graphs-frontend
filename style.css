@@ -172,3 +172,26 @@ d-article{
 .cg{
     height: calc(100vh - 150px);
 }
+
+.token-bar {
+    display: flex;
+    gap: 2px;
+    padding: 8px 10px;
+    flex-wrap: wrap;
+    font-family: monospace;
+    font-size: 13px;
+}
+.token-bar .token {
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+    background: #f8f8f8;
+}
+.token-bar .token:hover { background: #e0e0ff; }
+.token-bar .token.active { background: #4a6cf7; color: #fff; border-color: #4a6cf7; }
+.token-bar .token.before-active { background: #d0d8ff; }
+
+.main-content { display: flex; gap: 0; }
+.main-content > .cg { flex: 1; min-width: 0; }

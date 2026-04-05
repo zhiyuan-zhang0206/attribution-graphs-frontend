@@ -1,3 +1,22 @@
+window.initCgOthelloBoard = function({data, cgSel}) {
+  var boardSel = cgSel.select('.othello-board').html('')
+  if (!boardSel.node()) return
+  var tokens = data.metadata.prompt_tokens
+  if (!tokens || tokens.length < 2 || typeof initOthelloBoard === 'undefined') return
+
+  boardSel.st({overflow: 'auto', padding: '4px'})
+
+  // Detect board size from scan name (e.g. "othello-6x6-10x" → 6)
+  var boardSize = 6
+  var scanMatch = (data.metadata.scan || '').match(/(\d+)x(\d+)/)
+  if (scanMatch) boardSize = parseInt(scanMatch[1], 10)
+
+  var currentPos = tokens.length - 1
+  boardSel.append('div').attr('class', 'board-title').text('Board State')
+    .st({fontSize: '13px', fontWeight: 600, marginBottom: '6px', fontFamily: 'system-ui, sans-serif', color: '#333'})
+  initOthelloBoard(boardSel.append('div'), tokens, currentPos, boardSize)
+}
+
 window.initCg = async function (sel, slug, {clickedId, clickedIdCb, isModal, isGridsnap} = {}){
   var data = await util.getFile(`/graph_data/${slug}.json`)
   console.log(data)
@@ -12,6 +31,7 @@ window.initCg = async function (sel, slug, {clickedId, clickedIdCb, isModal, isG
     clickedCtxIdx: null,
     linkType: 'both',
     isShowAllLinks: '',
+    isShowQK: false,
     isSyncEnabled: '',
     subgraph: null,
     isEditMode: 1,
@@ -31,7 +51,7 @@ window.initCg = async function (sel, slug, {clickedId, clickedIdCb, isModal, isG
 
   await utilCg.formatData(data, visState)
   
-  var renderAll = util.initRenderAll(['hClerpUpdate', 'clickedId', 'hiddenIds', 'pinnedIds', 'linkType', 'isShowAllLinks', 'features', 'isSyncEnabled', 'shouldSortByWeight', 'hoveredId'])
+  var renderAll = util.initRenderAll(['hClerpUpdate', 'clickedId', 'hiddenIds', 'pinnedIds', 'linkType', 'isShowAllLinks', 'features', 'isSyncEnabled', 'shouldSortByWeight', 'hoveredId', 'isShowQK'])
 
   function colorNodes() {
     data.nodes.forEach(d => d.nodeColor = '#fff')
@@ -53,8 +73,13 @@ window.initCg = async function (sel, slug, {clickedId, clickedIdCb, isModal, isG
     data.links.forEach(d => {
       // d.color = d3.interpolatePRGn(_linearTScale(_linearAbsScale(d.weight)))
       d.strokeWidth = widthScale(Math.abs(d.pctInput))
-      d.pctInputColor = utilCg.pctInputColorFn(d.pctInput)
-      d.color = d3.interpolatePRGn(_linearTScale(_linearPctScale(d.pctInput)))
+      if (d.isQK) {
+        d.pctInputColor = d3.interpolateRdBu(0.5 - d.pctInput * 1.25)
+        d.color = d.pctInputColor
+      } else {
+        d.pctInputColor = utilCg.pctInputColorFn(d.pctInput)
+        d.color = d3.interpolatePRGn(_linearTScale(_linearPctScale(d.pctInput)))
+      }
     })
   }
   colorLinks()
@@ -147,24 +172,26 @@ window.initCg = async function (sel, slug, {clickedId, clickedIdCb, isModal, isG
 
   function initGridsnap() {
     var gridData = [
-      // {cur: {x: 0, y: 0,  w: 6, h: 1}, class: 'button-container'},
+      {cur: {x: 0, y: 0,  w: 14, h: 1}, class: 'button-container'},
       {cur: {x: 0, y: 8, w: 8, h: 8}, class: 'subgraph'},
       {cur: {x: 8, y: 1, w: 6, h: 6}, class: 'node-connections'},
       {cur: {x: 8, y: 6, w: 6, h: 10}, class: 'feature-detail'},
       {cur: {x: 0, y: 0, w: 8, h: 8}, class: 'link-graph', resizeFn: makeResizeFn(initCgLinkGraph)},
+      {cur: {x: 14, y: 0, w: 3, h: 6}, class: 'othello-board'},
       // {cur: {x: 0, y: 18, w: 6, h: 7}, class: 'clerp-list'},
       // {cur: {x: 6, y: 30, w: 4, h: 7}, class: 'feature-scatter'},
       // {cur: {x: 0, y: 30, w: 3, h: 8}, class: 'metadata'},
      ].filter(d => d)
 
     var initFns = [
-      // initCgButtonContainer, 
+      initCgButtonContainer,
       initCgSubgraph,
       initCgLinkGraph,
-      initCgNodeConnections, 
-      initCgFeatureDetail, 
-      // initCgClerpList, 
-      // initCgFeatureScatter, 
+      initCgNodeConnections,
+      initCgFeatureDetail,
+      initCgOthelloBoard,
+      // initCgClerpList,
+      // initCgFeatureScatter,
     ].filter(d => d)
     
     var gridsnapSel = sel.html('').append('div.gridsnap.cg')
@@ -201,6 +228,7 @@ window.initCg = async function (sel, slug, {clickedId, clickedIdCb, isModal, isG
   renderAll.features()
   renderAll.isSyncEnabled()
   renderAll.hoveredId()
+  renderAll.isShowQK()
 }
 
 window.init?.()

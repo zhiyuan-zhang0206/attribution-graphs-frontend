@@ -159,6 +159,7 @@ window.initCgSubgraph = function ({visState, renderAll, data, cgSel}) {
     // select subgraph links
     sgLinks = links
       .filter(d => nodeIdToNode[d.sourceNode.nodeId] && nodeIdToNode[d.targetNode.nodeId])
+      .filter(d => visState.isShowQK || !d.isQK)
       .map(d => ({
         source: d.sourceNode.nodeId,
         target: d.targetNode.nodeId,
@@ -240,6 +241,7 @@ window.initCgSubgraph = function ({visState, renderAll, data, cgSel}) {
       stroke: d => d.color,
       opacity: 0.8,
       strokeLinecap: 'round',
+      strokeDasharray: d => d.ogLinks?.some(l => l.ogLink?.isQK) ? '4 3' : 'none',
     })
 
     var edgeLabels = svg.appendMany('text.weight-label', sgLinks)
@@ -577,6 +579,7 @@ window.initCgSubgraph = function ({visState, renderAll, data, cgSel}) {
   renderAll.pinnedIds.fns['subgraph'] = renderSubgraph
   renderAll.clickedId.fns['subgraph'] = styleNodes
   renderAll.hoveredId.fns['subgraph'] = styleNodes
+  renderAll.isShowQK.fns['subgraph'] = renderSubgraph
 
   // https://github.com/1wheel/d3-force-container/blob/master/src/force-container.js
   function forceContainer(bbox) {

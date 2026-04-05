@@ -1,4 +1,4 @@
-window.initCgButtonContainer = function({visState, renderAll, cgSel}){
+window.initCgButtonContainer = function({visState, renderAll, data, cgSel}){
   var buttonContainer = cgSel.select('.button-container').html('')
     .st({marginBottom: '10px'})
 
@@ -23,6 +23,20 @@ window.initCgButtonContainer = function({visState, renderAll, cgSel}){
   renderAll.isShowAllLinks.fns.push(() => {
     showAllSel.classed('active', visState.isShowAllLinks)
   })
+
+  var hasQKLinks = data.links.some(d => d.isQK)
+  if (hasQKLinks) {
+    var qkToggleSel = buttonContainer.append('div.toggle-buttons')
+      .append('div').text('QK edges')
+      .on('click', () => {
+        visState.isShowQK = !visState.isShowQK
+        renderAll.isShowQK()
+      })
+
+    renderAll.isShowQK.fns.push(() => {
+      qkToggleSel.classed('active', visState.isShowQK)
+    })
+  }
 
   var clearButtonsSel = buttonContainer.append('div.toggle-buttons')
     .appendMany('div', ['Clear pinned', 'Clear clicked'])

@@ -42,17 +42,14 @@ window.util = (function () {
     // Cache storage 
     var __datacache = window.__datacache = window.__datacache || {}
 
-    // If path starts with /, treat as relative to static_js directory
-    if (path.startsWith('/')) {
-      path = 'https://transformer-circuits.pub/2025/attribution-graphs' + path
-    }
+    // Paths starting with / are served by our local server (no CDN).
 
     // Return cached result if available 
     if (!__datacache[path]) __datacache[path] = __fetch()
     return __datacache[path]
 
     async function __fetch() {
-      var res = await fetch(path, {cache: 'force-cache'})
+      var res = await fetch(path, {cache: 'no-store'})
       if (res.status == 500) {
         var resText = await res.text()
         console.log(resText, res) 
