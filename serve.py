@@ -70,8 +70,8 @@ def main():
     frontend_dir = os.path.abspath(os.path.dirname(__file__))
 
     handler = functools.partial(Handler, directory=frontend_dir, data_dir=data_dir)
+    socketserver.TCPServer.allow_reuse_address = True
     server = socketserver.TCPServer(("", args.port), handler)
-    server.allow_reuse_address = True
 
     print(f"http://localhost:{args.port}")
     print(f"  frontend: {frontend_dir}")

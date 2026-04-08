@@ -206,21 +206,23 @@ window.utilCg = (function(){
       py_node_id_to_node[d.node_id] = d
     })
 
-    // delete features that occur in than 2/3 of tokens
-    // TODO: more principled way of filtering them out — maybe by feature density?
+    // delete features that occur in more than 2/3 of tokens (noise filter)
+    // 短序列（< 4 tokens）跳过此过滤，否则会删掉所有 feature
     var deletedFeatures = []
-    var byFeatureId = d3.nestBy(nodes, d => d.featureId)
-    byFeatureId.forEach(feature => {
-      if (feature.length > metadata.prompt_tokens.length*2/3){
-        deletedFeatures.push(feature)
-        feature.forEach(d => {
-          delete idToNode[d.nodeId]
-          delete py_node_id_to_node[d.node_id]
-        })
-      }
-    })
-    if (deletedFeatures.length) console.log({deletedFeatures})
-    nodes = nodes.filter(d => idToNode[d.nodeId])
+    if (metadata.prompt_tokens.length >= 4) {
+      var byFeatureId = d3.nestBy(nodes, d => d.featureId)
+      byFeatureId.forEach(feature => {
+        if (feature.length > metadata.prompt_tokens.length*2/3){
+          deletedFeatures.push(feature)
+          feature.forEach(d => {
+            delete idToNode[d.nodeId]
+            delete py_node_id_to_node[d.node_id]
+          })
+        }
+      })
+      if (deletedFeatures.length) console.log({deletedFeatures})
+      nodes = nodes.filter(d => idToNode[d.nodeId])
+    }
     nodes = d3.sort(nodes, d => +d.layer)
 
     links = links.filter(d => py_node_id_to_node[d.source] && py_node_id_to_node[d.target])
@@ -604,9 +606,67 @@ window.utilCg = (function(){
   }
 
 
+  // 根据 visState 的 nodeThreshold / edgeThreshold 设置 node.visible / link.visible
+  // nodeThreshold: 0~1, 保留 influence 最高的一批节点，累计覆盖 threshold 比例的总 influence
+  // edgeThreshold: 0~1, 在可见节点间，保留 weight 最高的一批边，累计覆盖 threshold 比例
+  function computeVisibility(data, visState) {
+    var {nodes, links} = data
+
+    // — Node visibility —
+    var scored = nodes.filter(d => d.influence > 0)
+    scored = d3.sort(scored, d => -d.influence)
+    var total = d3.sum(scored, d => d.influence)
+    var cumsum = 0
+    var cutoff = visState.nodeThreshold * total
+    var visibleNodeSet = new Set()
+
+    // embedding / logit 始终可见
+    nodes.forEach(d => {
+      if (d.feature_type == 'embedding' || d.feature_type == 'logit') {
+        visibleNodeSet.add(d.nodeId)
+      }
+    })
+
+    if (total > 0) {
+      for (var d of scored) {
+        visibleNodeSet.add(d.nodeId)
+        cumsum += d.influence
+        if (cumsum >= cutoff) break
+      }
+    } else {
+      nodes.forEach(d => visibleNodeSet.add(d.nodeId))
+    }
+
+    nodes.forEach(d => d.visible = visibleNodeSet.has(d.nodeId))
+
+    // — Edge visibility —
+    var candidateLinks = links.filter(d => d.sourceNode?.visible && d.targetNode?.visible)
+    candidateLinks = d3.sort(candidateLinks, d => -d.absWeight)
+    var totalWeight = d3.sum(candidateLinks, d => d.absWeight)
+    cumsum = 0
+    var edgeCutoff = visState.edgeThreshold * totalWeight
+    var visibleLinkSet = new Set()
+
+    if (totalWeight > 0) {
+      for (var link of candidateLinks) {
+        visibleLinkSet.add(link.linkId)
+        cumsum += link.absWeight
+        if (cumsum >= edgeCutoff) break
+      }
+    } else {
+      candidateLinks.forEach(d => visibleLinkSet.add(d.linkId))
+    }
+
+    links.forEach(d => d.visible = visibleLinkSet.has(d.linkId))
+
+    data.visibleNodeCount = visibleNodeSet.size
+    data.visibleLinkCount = visibleLinkSet.size
+  }
+
   return {
     loadDatapath,
     formatData,
+    computeVisibility,
     initBcSync,
     addFeatureEvents,
     hoverFeature,

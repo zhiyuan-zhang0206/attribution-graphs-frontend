@@ -58,6 +58,40 @@ window.initCgButtonContainer = function({visState, renderAll, data, cgSel}){
     }
   })
 
+  // — Threshold sliders —
+  var thresholdContainer = buttonContainer.append('div.threshold-sliders')
+    .st({display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap'})
+
+  function addSlider(container, label, key, min, max, step) {
+    var wrap = container.append('div').st({display: 'flex', alignItems: 'center', gap: '4px'})
+    wrap.append('span').text(label).st({fontSize: '11px', whiteSpace: 'nowrap'})
+    var input = wrap.append('input')
+      .at({type: 'range', min, max, step, value: visState[key]})
+      .st({width: '80px'})
+    var valLabel = wrap.append('span').st({fontSize: '11px', minWidth: '32px'})
+      .text(d3.format('.0%')(visState[key]))
+
+    input.on('input', function() {
+      visState[key] = +this.value
+      valLabel.text(d3.format('.0%')(visState[key]))
+      renderAll.threshold()
+    })
+
+    renderAll.threshold.fns.push(() => {
+      input.property('value', visState[key])
+      valLabel.text(d3.format('.0%')(visState[key]))
+    })
+  }
+
+  addSlider(thresholdContainer, 'Nodes', 'nodeThreshold', 0.3, 1.0, 0.01)
+  addSlider(thresholdContainer, 'Edges', 'edgeThreshold', 0.3, 1.0, 0.01)
+
+  var countLabel = thresholdContainer.append('span')
+    .st({fontSize: '10px', color: '#888'})
+  renderAll.threshold.fns.push(() => {
+    countLabel.text(`${data.visibleNodeCount} nodes, ${data.visibleLinkCount} edges`)
+  })
+
   var resetGridSel = buttonContainer.append('div.toggle-buttons')
     .append('div').text('Reset grid')
     .on('click', () => {

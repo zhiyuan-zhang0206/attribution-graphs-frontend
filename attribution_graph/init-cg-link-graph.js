@@ -62,7 +62,7 @@ window.initCgLinkGraph = function({visState, renderAll, data, cgSel}){
   ctxCounts.forEach((d, i) => d.width = c.x(d.ctx_idx + 1) - c.x(ctxCounts[i].ctx_idx))
   
   // if default to 8px padding right, if pad right to center singletons 
-  var padR = Math.min(8, d3.min(ctxCounts.slice(1), d => d.width/2)) + 0
+  var padR = Math.min(8, d3.min(ctxCounts.slice(1), d => d.width/2) ?? 8) + 0
   
   // find the tightest spacing between nodes and use for all ctx (but don't go below 20)
   ctxCounts.forEach(d => d.minS = (d.width - padR)/d.maxCount)
@@ -203,6 +203,7 @@ window.initCgLinkGraph = function({visState, renderAll, data, cgSel}){
       })
     })
 
+    filteredLinks = filteredLinks.filter(d => d.visible)
     if (!visState.isShowQK) {
       filteredLinks = filteredLinks.filter(d => !d.isQK)
     }
@@ -210,12 +211,13 @@ window.initCgLinkGraph = function({visState, renderAll, data, cgSel}){
     return filteredLinks
   }
 
-  drawLinks(links, allCtx.allLinks, 0, 'rgba(0,0,0,.05)')
+  drawLinks(links.filter(d => d.visible), allCtx.allLinks, 0, 'rgba(0,0,0,.05)')
   // renderAll.isShowAllLinks.fns['linkGraph'] = () => c.sel.select('canvas').st({display: visState.isShowAllLinks ? '' : 'none'})
 
   function renderPinnedIds(){
     drawLinks(visState.clickedId ? [] : filterLinks(visState.pinnedIds), allCtx.pinnedLinks)
     nodeSel.classed('pinned', d => visState.pinnedIds.includes(d.nodeId))
+    nodeSel.st({display: d => d.visible ? '' : 'none'})
   }
   renderAll.pinnedIds.fns['linkGraph'] = renderPinnedIds
 
@@ -257,7 +259,14 @@ window.initCgLinkGraph = function({visState, renderAll, data, cgSel}){
     hoverSel.st({display: e => e.featureId == visState.hoveredId ? '' : 'none'})
   }
   renderAll.isShowQK.fns['linkGraph'] = () => {
-    drawLinks(links.filter(d => visState.isShowQK || !d.isQK), allCtx.allLinks, 0, 'rgba(0,0,0,.05)')
+    drawLinks(links.filter(d => d.visible && (visState.isShowQK || !d.isQK)), allCtx.allLinks, 0, 'rgba(0,0,0,.05)')
+    renderPinnedIds()
+    renderClicked()
+  }
+
+  renderAll.threshold.fns['linkGraph'] = () => {
+    drawLinks(links.filter(d => d.visible && (visState.isShowQK || !d.isQK)), allCtx.allLinks, 0, 'rgba(0,0,0,.05)')
+    nodeSel.st({display: d => d.visible ? '' : 'none'})
     renderPinnedIds()
     renderClicked()
   }

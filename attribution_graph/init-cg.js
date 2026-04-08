@@ -2,7 +2,7 @@ window.initCgOthelloBoard = function({data, cgSel}) {
   var boardSel = cgSel.select('.othello-board').html('')
   if (!boardSel.node()) return
   var tokens = data.metadata.prompt_tokens
-  if (!tokens || tokens.length < 2 || typeof initOthelloBoard === 'undefined') return
+  if (!tokens || tokens.length < 1 || typeof initOthelloBoard === 'undefined') return
 
   boardSel.st({overflow: 'auto', padding: '4px'})
 
@@ -38,6 +38,8 @@ window.initCg = async function (sel, slug, {clickedId, clickedIdCb, isModal, isG
     isHideLayer: data.metadata.scan == util.scanSlugToName.h35 || data.metadata.scan == util.scanSlugToName.moc, 
     sg_pos: '',
     isModal: true,
+    nodeThreshold: 0.8,
+    edgeThreshold: 0.9,
     isGridsnap,
     ...data.qParams
   }
@@ -50,8 +52,9 @@ window.initCg = async function (sel, slug, {clickedId, clickedIdCb, isModal, isG
   if (visState.hiddenIds.replace) visState.hiddenIds = visState.hiddenIds.split(',')
 
   await utilCg.formatData(data, visState)
-  
-  var renderAll = util.initRenderAll(['hClerpUpdate', 'clickedId', 'hiddenIds', 'pinnedIds', 'linkType', 'isShowAllLinks', 'features', 'isSyncEnabled', 'shouldSortByWeight', 'hoveredId', 'isShowQK'])
+  utilCg.computeVisibility(data, visState)
+
+  var renderAll = util.initRenderAll(['hClerpUpdate', 'clickedId', 'hiddenIds', 'pinnedIds', 'linkType', 'isShowAllLinks', 'features', 'isSyncEnabled', 'shouldSortByWeight', 'hoveredId', 'isShowQK', 'threshold'])
 
   function colorNodes() {
     data.nodes.forEach(d => d.nodeColor = '#fff')
@@ -84,6 +87,7 @@ window.initCg = async function (sel, slug, {clickedId, clickedIdCb, isModal, isG
   }
   colorLinks()
 
+  renderAll.threshold.fns.push(() => utilCg.computeVisibility(data, visState))
   renderAll.hClerpUpdate.fns.push(() => utilCg.hClerpUpdateFn(null, data))
 
   renderAll.hoveredId.fns.push(() => {
@@ -143,6 +147,8 @@ window.initCg = async function (sel, slug, {clickedId, clickedIdCb, isModal, isG
     var nodeIdToTargetLink = {}
     var featureIdToLink = {}
     connectedLinks.forEach(link => {
+      // QK edge 不参与 node connection 面板（避免覆盖 V edge 的 weight）
+      if (link.isQK) return
       if (link.sourceNode === node) {
         nodeIdToTargetLink[link.targetNode.nodeId] = link
         featureIdToLink[link.targetNode.featureId] = link
@@ -153,7 +159,6 @@ window.initCg = async function (sel, slug, {clickedId, clickedIdCb, isModal, isG
         featureIdToLink[link.sourceNode.featureId] = link
         link.tmpClickedCtxOffset = link.sourceNode.ctx_idx - node.ctx_idx
       }
-      // link.tmpColor = colorScale(link.pctInput)
       link.tmpColor = link.pctInputColor
     })
 
@@ -229,6 +234,7 @@ window.initCg = async function (sel, slug, {clickedId, clickedIdCb, isModal, isG
   renderAll.isSyncEnabled()
   renderAll.hoveredId()
   renderAll.isShowQK()
+  renderAll.threshold()
 }
 
 window.init?.()

@@ -195,3 +195,12 @@ d-article{
 
 .main-content { display: flex; gap: 0; }
 .main-content > .cg { flex: 1; min-width: 0; }
+
+.threshold-sliders {
+    margin-top: 2px;
+}
+.threshold-sliders input[type="range"] {
+    height: 4px;
+    cursor: pointer;
+    accent-color: #555;
+}
