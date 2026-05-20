@@ -601,8 +601,9 @@ window.utilCg = (function(){
     if (type == 'logit') return '■'
     if (type == 'embedding') return '■'
     if (type === 'mlp reconstruction error') return '◆'
+    if (type === 'sae_residual') return '▲'  // SAE residual feature (Othello multi-residual)
     return '●'
-    
+
   }
 
 
