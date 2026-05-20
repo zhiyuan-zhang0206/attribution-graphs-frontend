@@ -12,9 +12,49 @@ window.initCgOthelloBoard = function({data, cgSel}) {
   if (scanMatch) boardSize = parseInt(scanMatch[1], 10)
 
   var currentPos = tokens.length - 1
-  boardSel.append('div').attr('class', 'board-title').text('Board State')
-    .st({fontSize: '13px', fontWeight: 600, marginBottom: '6px', fontFamily: 'system-ui, sans-serif', color: '#333'})
+  var titleStyle = {fontSize: '13px', fontWeight: 600, marginBottom: '6px', fontFamily: 'system-ui, sans-serif', color: '#333'}
+
+  // --- Board BEFORE the predicted move ---
+  boardSel.append('div').attr('class', 'board-title').text('Before (current state)').st(titleStyle)
   initOthelloBoard(boardSel.append('div'), tokens, currentPos, boardSize)
+
+  // --- Board AFTER the predicted top-1 move (if available) ---
+  // Find target logit node — that's the top-1 prediction the graph is attributing.
+  var targetLogit = null
+  if (Array.isArray(data.nodes)) {
+    targetLogit = data.nodes.find(function(n) {
+      return n.feature_type === 'logit' && n.is_target_logit === true
+    })
+  }
+  if (!targetLogit) return  // no prediction info → skip after board (backward compat)
+
+  var predictedVocabIdx = targetLogit.feature
+  // Build tokens list with predicted move appended at the end.
+  var tokensWithPrediction = tokens.slice()
+  tokensWithPrediction.push(String(predictedVocabIdx))
+
+  // Decode token label for title.
+  var passMove = boardSize * boardSize
+  var moveLabel
+  if (predictedVocabIdx === passMove) {
+    moveLabel = 'PASS'
+  } else if (predictedVocabIdx === passMove + 1) {
+    moveLabel = 'BOS?'
+  } else if (predictedVocabIdx === passMove + 2) {
+    moveLabel = 'EOS?'
+  } else {
+    var r = Math.floor(predictedVocabIdx / boardSize)
+    var c = predictedVocabIdx % boardSize
+    moveLabel = 'cell ' + predictedVocabIdx + ' (r' + r + ',c' + c + ')'
+  }
+  var afterTitle = 'After predicted: ' + moveLabel
+  if (typeof targetLogit.token_prob === 'number') {
+    afterTitle += ' [p=' + targetLogit.token_prob.toFixed(3) + ']'
+  }
+
+  boardSel.append('div').attr('class', 'board-title').text(afterTitle)
+    .st(Object.assign({}, titleStyle, {marginTop: '12px'}))
+  initOthelloBoard(boardSel.append('div'), tokensWithPrediction, currentPos + 1, boardSize)
 }
 
 window.initCg = async function (sel, slug, {clickedId, clickedIdCb, isModal, isGridsnap} = {}){
